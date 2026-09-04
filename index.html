@@ -11,23 +11,25 @@ button{background:#800;color:#fff;border:none;padding:10px 20px;margin:5px;curso
 <div id="ui" style="display:none;"><div id="r"></div><div id="st"></div><div id="sv"></div></div>
 <div id="crosshair">+</div><canvas id="c"></canvas><script>
 const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
-let rRole="",run=false,keys={},click=false,p={x:0,y:0,s:100,sp:160,st:100,a:true,yaw:0,pitch:0},bots=[],pil=[],timer=180,lt=0;
-const MV=350;window.onresize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;};window.onresize();
+let rRole="",run=false,keys={},click=false,p={x:0,y:0,s:100,sp:160,st:100,a:true,yaw:0,pitch:0.2},bots=[],pil=[],timer=180,lt=0;
+const MV=450;window.onresize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;};window.onresize();
 window.onkeydown=(e)=>keys[e.key.toLowerCase()]=true;window.onkeyup=(e)=>keys[e.key.toLowerCase()]=false;
 canvas.onclick=()=>{if(run){canvas.requestPointerLock();click=true;}};
 document.addEventListener('mousemove',(e)=>{if(document.pointerLockElement===canvas){
-p.yaw+=(e.movementX*0.003);p.pitch=Math.max(-1.4,Math.min(1.4,p.pitch+(e.movementY*0.003)));}});
+p.yaw-=(e.movementX*0.003);p.pitch=Math.max(-0.6,Math.min(1.2,p.pitch-(e.movementY*0.003)));}});
 function start(role){
 rRole=role;document.getElementById("menu").style.display="none";document.getElementById("ui").style.display="block";
 document.getElementById("crosshair").style.display="block";document.getElementById("r").innerText="Role: "+role;
-p={x:0,y:0,s:role==="Killer"?135:100,sp:160,st:100,a:true,cd:0,yaw:0,pitch:0};bots=[];pil=[];let cnt=role==="Survivor"?6:7;
+p={x:0,y:0,s:role==="Killer"?135:100,sp:160,st:100,a:true,cd:0,yaw:0,pitch:0.2};bots=[];pil=[];let cnt=role==="Survivor"?6:7;
 for(let i=0;i<cnt;i++)bots.push({t:"Survivor",x:(Math.random()-0.5)*800,y:(Math.random()-0.5)*800,s:100,a:true});
 if(role==="Survivor")bots.push({t:"Killer",x:400,y:400,s:125,cd:0});
 for(let i=0;i<15;i++)pil.push({x:(Math.random()-0.5)*700,y:(Math.random()-0.5)*700,r:15});
 canvas.requestPointerLock();run=true;lt=performance.now();requestAnimationFrame(loop);
 }
 function proj(wx,wy,wh=10){
-let dx=wx-p.x,dy=wy-p.y,dh=wh-0;
+let camDist=75,camH=25;
+let cx=p.x-Math.sin(p.yaw)*Math.cos(p.pitch)*camDist,cy=p.y-Math.cos(p.yaw)*Math.cos(p.pitch)*camDist,cz=camH+Math.sin(p.pitch)*camDist;
+let dx=wx-cx,dy=wy-cy,dh=wh-cz;
 let rx=dx*Math.cos(p.yaw)+dy*Math.sin(p.yaw),ry=-dx*Math.sin(p.yaw)+dy*Math.cos(p.yaw),rz=dh;
 let rY=ry*Math.cos(p.pitch)-rz*Math.sin(p.pitch),rZ=ry*Math.sin(p.pitch)+rz*Math.cos(p.pitch);
 if(rY<=10)return null;let s=400/rY;return{x:(canvas.width/2)+(rx*s),y:(canvas.height/2)-(rZ*s),z:s,d:rY};
@@ -60,8 +62,9 @@ let d=Math.hypot(i-p.x,j-p.y);if(d>MV)continue;let pt=proj(i,j,0);
 if(pt){ctx.fillStyle="rgba(80,80,90,"+(1-(d/MV))*0.4+")";ctx.fillRect(pt.x,pt.y,2,2);}}}
 let lst=[];bots.forEach(b=>{if(b.t==="Survivor"&&!b.a)return;let d=Math.hypot(b.x-p.x,b.y-p.y);if(d>MV)return;
 let pr1=proj(b.x,b.y,0),pr2=proj(b.x,b.y,30);if(pr1&&pr2)lst.push({p1:pr1,p2:pr2,c:b.t==="Killer"?"255,50,50":"80,240,80",t:b.t,d:pr1.d,ty:"b"});});
-pil.forEach(pl=>{let d=Math.hypot(pl.x-p.x,pl.y-p.y);if(d>MV)return;
+pil.forEach(pl=>{let d=Math.hypot(pl.x-p.x,pl.y-pl.y);let dP=Math.hypot(pl.x-p.x,pl.y-p.y);if(dP>MV)return;
 let pr1=proj(pl.x,pl.y,0),pr2=proj(pl.x,pl.y,60);if(pr1&&pr2)lst.push({p1:pr1,p2:pr2,c:"20,20,25",t:"",d:pr1.d,ty:"p",w:pl.r});});
+let selfP1=proj(p.x,p.y,0),selfP2=proj(p.x,p.y,30);if(selfP1&&selfP2)lst.push({p1:selfP1,p2:selfP2,c:rRole==="Killer"?"255,100,100":"100,200,255",t:"YOU",d:selfP1.d,ty:"b"});
 if(rRole==="Survivor"){let k=bots.find(b=>b.t==="Killer"),d=Math.hypot(k.x-p.x,k.y-p.y);if(d<180){ctx.fillStyle="rgba(255,0,0,"+(1-(d/180))*0.15+")";ctx.fillRect(0,0,canvas.width,canvas.height);}}
 lst.sort((a,b)=>b.d-a.d);
 lst.forEach(e=>{let f=Math.max(0,1-(e.d/MV)),h=Math.abs(e.p1.y-e.p2.y),w=e.ty==="p"?(e.w*e.p1.z):h/2;
