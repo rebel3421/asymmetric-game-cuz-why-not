@@ -4,26 +4,32 @@ canvas{display:block;width:100vw;height:100vh;cursor:pointer;}
 #ui{position:absolute;top:10px;left:10px;text-shadow:1px 1px 2px #000;pointer-events:none;font-size:14px;}
 #menu{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;padding:20px;border:2px solid #333;text-align:center;z-index:10;}
 button{background:#800;color:#fff;border:none;padding:10px 20px;margin:5px;cursor:pointer;font-weight:bold;}
-#crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:rgba(255,255,255,0.4);font-size:20px;pointer-events:none;display:none;}
+#puz{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);border:2px solid #555;padding:20px;text-align:center;display:none;z-index:5;}
+#sc-box{position:relative;width:160px;height:160px;border-radius:50%;border:4px solid #333;margin:15px auto;}
+#sc-zone{position:absolute;width:160px;height:160px;border-radius:50%;border:4px solid transparent;border-top-color:#0f0;transform:rotate(45deg);top:-4px;left:-4px;}
+#sc-hand{position:absolute;width:2px;height:80px;background:#ff0;left:79px;top:0;transform-origin:bottom center;}
 </style></head><body>
-<div id="menu"><h2>Faction</h2><p style="font-size:12px;color:#aaa;">Click role, click screen to lock mouse.<br>ESC to unlock.</p>
+<div id="menu"><h2>Faction</h2><p style="font-size:12px;color:#aaa;">Click role, click screen to lock mouse.<br>Use ARROW KEYS to move & steer.</p>
 <button onclick="start('Survivor')">Survivor</button><button onclick="start('Killer')">Killer</button></div>
-<div id="ui" style="display:none;"><div id="r"></div><div id="st"></div><div id="sv"></div></div>
-<div id="crosshair">+</div><canvas id="c"></canvas><script>
+<div id="ui" style="display:none;"><div id="r"></div><div id="st"></div><div id="sv"></div><div id="genUI">Gens Left: 3</div></div>
+<div id="puz"><h3>REPAIR GENERATOR</h3><p>Press <b>SPACEBAR</b> when the yellow hand hits the <b>GREEN ZONE</b>!</p><div id="sc-box"><div id="sc-zone"></div><div id="sc-hand"></div></div><p id="puz-stat" style="color:#aaa;">Progress: 0%</p></div>
+<canvas id="c"></canvas><script>
 const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
-let rRole="",run=false,keys={},click=false,p={x:0,y:0,s:100,sp:160,st:100,a:true,yaw:0,pitch:0.4},bots=[],pil=[],timer=180,lt=0;
+let rRole="",run=false,keys={},click=false,p={x:0,y:0,s:100,sp:160,st:100,a:true,yaw:0,pitch:0.45},bots=[],pil=[],gens=[],timer=180,lt=0;
+let repairing=null,scAngle=0,scZoneStart=0,scActive=false,scSuccess=45;
 const MV=450;window.onresize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;};window.onresize();
-window.onkeydown=(e)=>keys[e.key]=true;window.onkeyup=(e)=>keys[e.key]=false;
-canvas.onclick=()=>{if(run){canvas.requestPointerLock();click=true;}};
-document.addEventListener('mousemove',(e)=>{if(document.pointerLockElement===canvas){
-p.yaw-=(e.movementX*0.003);p.pitch=Math.max(0.1,Math.min(0.7,p.pitch-(e.movementY*0.002)));}});
+window.onkeydown=(e)=>{keys[e.key]=true;if(e.key===" "&&scActive)checkSkillCheck();};window.onkeyup=(e)=>keys[e.key]=false;
+canvas.onclick=()=>{if(run&&!repairing){canvas.requestPointerLock();click=true;}};
+document.addEventListener('mousemove',(e)=>{if(document.pointerLockElement===canvas&&!repairing){
+p.yaw-=(e.movementX*0.003);p.pitch=Math.max(0.2,Math.min(0.7,p.pitch-(e.movementY*0.002)));}});
 function start(role){
 rRole=role;document.getElementById("menu").style.display="none";document.getElementById("ui").style.display="block";
-document.getElementById("crosshair").style.display="block";document.getElementById("r").innerText="Role: "+role;
-p={x:0,y:0,s:role==="Killer"?135:100,sp:160,st:100,a:true,cd:0,yaw:0,pitch:0.4};bots=[];pil=[];let cnt=role==="Survivor"?6:7;
-for(let i=0;i<cnt;i++)bots.push({t:"Survivor",x:(Math.random()-0.5)*600,y:(Math.random()-0.5)*600,s:100,a:true});
+p={x:0,y:0,s:role==="Killer"?135:100,sp:160,st:100,a:true,cd:0,yaw:0,pitch:0.45};bots=[];pil=[];gens=[];repairing=null;scActive=false;
+let cnt=role==="Survivor"?4:5;
+for(let i=0;i<cnt;i++)bots.push({t:"Survivor",x:(Math.random()-0.5)*500,y:(Math.random()-0.5)*500,s:100,a:true});
 if(role==="Survivor")bots.push({t:"Killer",x:200,y:200,s:125,cd:0});
-for(let i=0;i<15;i++)pil.push({x:(Math.random()-0.5)*600,y:(Math.random()-0.5)*600,r:15});
+for(let i=0;i<10;i++)pil.push({x:(Math.random()-0.5)*600,y:(Math.random()-0.5)*600,r:15});
+gens.push({x:-150,y:-150,prog:0,done:false},{x:150,y:-150,prog:0,done:false},{x:0,y:200,prog:0,done:false});
 canvas.requestPointerLock();run=true;lt=performance.now();requestAnimationFrame(loop);
 }
 function proj(wx,wy,wh=0){
@@ -35,24 +41,43 @@ let rY=ry*Math.cos(p.pitch)-rz*Math.sin(p.pitch),rZ=ry*Math.sin(p.pitch)+rz*Math
 if(rY<=5)return null;let s=500/rY;return{x:(canvas.width/2)+(rx*s),y:(canvas.height/2)-(rZ*s),z:s,d:rY};
 }
 function loop(t){if(!run)return;let dt=(t-lt)/1000;lt=t;update(dt);draw();requestAnimationFrame(loop);}
+function triggerSkillCheck(){
+scAngle=0;scZoneStart=Math.random()*260;
+document.getElementById("sc-zone").style.transform="rotate("+scZoneStart+"deg)";
+scActive=true;
+}
+function checkSkillCheck(){
+let normalizedAngle=(scAngle%360);
+let start=scZoneStart,end=scZoneStart+scSuccess;
+if(normalizedAngle>=start&&normalizedAngle<=end){
+repairing.prog=Math.min(100,repairing.prog+25);
+document.getElementById("puz-stat").innerText="Progress: "+repairing.prog+"%";if(repairing.prog>=100){repairing.done=true;exitRepair();}else{triggerSkillCheck();}
+}else{repairing.prog=Math.max(0,repairing.prog-15);document.getElementById("puz-stat").innerText="Progress: "+repairing.prog+"% (TRIGGERED STRIKE!)";triggerSkillCheck();}
+}
+function exitRepair(){repairing=null;scActive=false;document.getElementById("puz").style.display="none";canvas.requestPointerLock();}
 function update(dt){
 timer-=dt;if(timer<=0)return end("TIME EXPIRED!");
-if(p.a){
-if(keys.ArrowLeft)p.yaw+=2.2*dt;if(keys.ArrowRight)p.yaw-=2.2*dt;
+if(scActive){scAngle=(scAngle+180*dt);document.getElementById("sc-hand").style.transform="rotate("+scAngle+"deg)";if(scAngle>360){triggerSkillCheck();}}
+if(repairing){if(keys.Escape||Math.hypot(repairing.x-p.x,repairing.y-p.y)>50){exitRepair();}}
+if(p.a&&!repairing){
+if(keys.ArrowLeft)p.yaw+=2.5*dt;if(keys.ArrowRight)p.yaw-=2.5*dt;
 let mv=keys.ArrowUp||keys.ArrowDown,sp=p.s,ox=p.x,oy=p.y;
 if(rRole==="Survivor"&&keys.Shift&&p.st>0&&mv){sp=p.sp;p.st=Math.max(0,p.st-35*dt);}else{p.st=Math.min(100,p.st+15*dt);}
 let fx=Math.sin(p.yaw),fy=Math.cos(p.yaw);
 if(keys.ArrowUp){p.x+=fx*sp*dt;p.y+=fy*sp*dt;}if(keys.ArrowDown){p.x-=fx*sp*dt;p.y-=fy*sp*dt;}
 if(Math.abs(p.x)>400)p.x=ox;if(Math.abs(p.y)>400)p.y=oy;
+if(rRole==="Survivor"&&keys.Control){gens.forEach(g=>{if(!g.done&&Math.hypot(g.x-p.x,g.y-p.y)<45){repairing=g;document.exitPointerLock();document.getElementById("puz").style.display="block";triggerSkillCheck();}});}
 if(rRole==="Killer"){if(p.cd>0)p.cd-=dt;if(click&&p.cd<=0){p.cd=1.2;bots.forEach(b=>{if(b.t==="Survivor"&&b.a&&Math.hypot(b.x-p.x,b.y-p.y)<45)b.a=false;});}}}
 click=false;let kil=rRole==="Killer"?p:bots.find(b=>b.t==="Killer"),svC=0;
 bots.forEach(b=>{
-if(b.t==="Survivor"){if(!b.a)return;svC++;let d=Math.hypot(kil.x-b.x,kil.y-b.y);if(d<200){b.x-=(kil.x-b.x)/d*b.s*dt;b.y-=(kil.y-b.y)/d*b.s*dt;}else{b.x+=Math.sin(performance.now()/500)*5*dt;}}
+if(b.t==="Survivor"){if(!b.a)return;svC++;let d=Math.hypot(kil.x-b.x,kil.y-b.y);if(d<180){b.x-=(kil.x-b.x)/d*b.s*dt;b.y-=(kil.y-b.y)/d*b.s*dt;}else{b.x+=Math.sin(performance.now()/500)*5*dt;}}
 else if(b.t==="Killer"&&kil!==p){if(b.cd>0)b.cd-=dt;let cl=null,mD=Infinity;if(rRole==="Survivor"&&p.a){mD=Math.hypot(p.x-b.x,p.y-b.y);cl=p;}
 bots.forEach(s=>{if(s.t==="Survivor"&&s.a){let d=Math.hypot(s.x-b.x,s.y-b.y);if(d<mD){mD=d;cl=s;}}});
-if(cl){b.x+=(cl.x-b.x)/mD*b.s*dt;b.y+=(cl.y-b.y)/mD*b.s*dt;if(mD<40&&b.cd<=0){b.cd=1.5;cl.a=false;if(cl===p)end("YOU DIED!");}}}});
+if(cl){b.x+=(cl.x-b.x)/mD*b.s*dt;b.y+=(cl.y-b.y)/mD*b.s*dt;if(mD<40&&b.cd<=0){b.cd=1.5;cl.a=false;if(cl===p){exitRepair();end("YOU DIED!");}}}}});
+let gLeft=gens.filter(g=>!g.done).length;document.getElementById("genUI").innerText="Gens Left: "+gLeft;
 let total=svC+(rRole==="Survivor"&&p.a?1:0);document.getElementById("sv").innerText="Survivors: "+total+" | Time: "+Math.ceil(timer);
 document.getElementById("st").innerText=rRole==="Survivor"?"Stamina: "+Math.floor(p.st)+"%":"Attack: "+(p.cd>0?"CD":"READY");
+if(gLeft===0)end("SURVIVORS REPAIRED ALL GENS AND ESCAPED!");
 if(total===0)end(rRole==="Killer"?"KILLER WINS!":"SURVIVORS DIED!");
 }
 function draw(){
@@ -64,14 +89,26 @@ let lst=[];bots.forEach(b=>{if(b.t==="Survivor"&&!b.a)return;let d=Math.hypot(b.
 let pr1=proj(b.x,b.y,0),pr2=proj(b.x,b.y,30);if(pr1&&pr2)lst.push({p1:pr1,p2:pr2,c:b.t==="Killer"?"255,50,50":"80,240,80",t:b.t,d:pr1.d,ty:"b"});});
 pil.forEach(pl=>{let dP=Math.hypot(pl.x-p.x,pl.y-p.y);if(dP>MV)return;
 let pr1=proj(pl.x,pl.y,0),pr2=proj(pl.x,pl.y,60);if(pr1&&pr2)lst.push({p1:pr1,p2:pr2,c:"20,20,25",t:"",d:pr1.d,ty:"p",w:pl.r});});
-let selfP1=proj(p.x,p.y,0),selfP2=proj(p.x,p.y,30);if(selfP1&&selfP2)lst.push({p1:selfP1,p2:selfP2,c:rRole==="Killer"?"255,100,100":"100,200,255",t:"YOU",d:selfP1.d,ty:"b"});
+gens.forEach(g=>{let dP=Math.hypot(g.x-p.x,g.y-p.y);if(dP>MV)return;
+let pr1=proj(g.x,g.y,0),pr2=proj(g.x,g.y,45);if(pr1&&pr2)lst.push({p1:pr1,p2:pr2,c:g.done?"50,255,50":"230,130,20",t:g.done?"GEN [DONE]":"GEN [Ctrl]",d:pr1.d,ty:"g",w:20});});
+let selfP1=proj(p.x,p.y,0),selfP2=proj(p.x,p.y,30);
+if(selfP1&&selfP2){
+    let headX=selfP1.x+Math.sin(p.yaw)*15*selfP1.z;
+    let headY=selfP2.y;
+    lst.push({p1:selfP1,p2:selfP2,hx:headX,hy:headY,c:rRole==="Killer"?"255,100,100":"100,200,255",t:"YOU",d:selfP1.d,ty:"player"});
+}
 if(rRole==="Survivor"){let k=bots.find(b=>b.t==="Killer");if(k){let d=Math.hypot(k.x-p.x,k.y-p.y);if(d<180){ctx.fillStyle="rgba(255,0,0,"+(1-(d/180))*0.15+")";ctx.fillRect(0,0,canvas.width,canvas.height);}}}
 lst.sort((a,b)=>b.d-a.d);
-lst.forEach(e=>{let f=Math.max(0,1-(e.d/MV)),h=Math.abs(e.p1.y-e.p2.y),w=e.ty==="p"?(e.w*e.p1.z):h/2;
-if(e.ty==="b"){ctx.fillStyle="rgba("+e.c+","+f+")";ctx.fillRect(e.p2.x-w/2,e.p2.y,w,h);
-ctx.fillStyle="rgba(255,255,255,"+f+")";ctx.font=Math.max(10,e.p1.z*10)+"px sans-serif";ctx.textAlign="center";ctx.fillText(e.t,e.p2.x,e.p2.y-5);
-}else{ctx.fillStyle="rgba("+e.c+","+f+")";ctx.fillRect(e.p2.x-w/2,e.p2.y,w,h);
-ctx.strokeStyle="rgba(70,70,80,"+(f*0.5)+")";ctx.lineWidth=Math.max(1,e.p1.z*0.5);ctx.strokeRect(e.p2.x-w/2,e.p2.y,w,h);}});
+lst.forEach(e=>{let f=Math.max(0,1-(e.d/MV)),h=Math.abs(e.p1.y-e.p2.y),w=(e.ty==="p"||e.ty==="g")?(e.w*e.p1.z):h/2;
+if(e.ty==="player"){
+    ctx.fillStyle="rgba("+e.c+","+f+")";ctx.fillRect(e.p2.x-w/2,e.p2.y,w,h);
+    ctx.fillStyle="rgba(255,255,0,"+f+")";ctx.beginPath();ctx.arc(e.hx,e.hy+h*0.3,w*0.3,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,"+f+")";ctx.font=Math.max(10,e.p1.z*10)+"px sans-serif";ctx.textAlign="center";ctx.fillText(e.t,e.p2.x,e.p2.y-5);
+}else{
+    ctx.fillStyle="rgba("+e.c+","+f+")";ctx.fillRect(e.p2.x-w/2,e.p2.y,w,h);
+    if(e.ty==="b"||e.ty==="g"){ctx.fillStyle="rgba(255,255,255,"+f+")";ctx.font=Math.max(10,e.p1.z*10)+"px sans-serif";ctx.textAlign="center";ctx.fillText(e.t,e.p2.x,e.p2.y-5);}
+    if(e.ty==="p"){ctx.strokeStyle="rgba(70,70,80,"+(f*0.5)+")";ctx.lineWidth=Math.max(1,e.p1.z*0.5);ctx.strokeRect(e.p2.x-w/2,e.p2.y,w,h);}
+}});
 }
-function end(m){run=false;document.exitPointerLock();alert(m);document.getElementById("menu").style.display="block";document.getElementById("ui").style.display="none";document.getElementById("crosshair").style.display="none";}
+function end(m){run=false;document.exitPointerLock();alert(m);document.getElementById("menu").style.display="block";document.getElementById("ui").style.display="none";document.getElementById("puz").style.display="none";}
 </script></body></html>
