@@ -1,31 +1,34 @@
 <!DOCTYPE html><html><head><meta charset="UTF-8"><title>3D Horror</title><style>
 body{margin:0;background:#050505;color:#fff;font-family:sans-serif;overflow:hidden;}
-canvas{display:block;width:100vw;height:100vh;}
+canvas{display:block;width:100vw;height:100vh;cursor:pointer;}
 #ui{position:absolute;top:10px;left:10px;text-shadow:1px 1px 2px #000;pointer-events:none;font-size:14px;}
 #menu{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;padding:20px;border:2px solid #333;text-align:center;z-index:10;}
 button{background:#800;color:#fff;border:none;padding:10px 20px;margin:5px;cursor:pointer;font-weight:bold;}
 #crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:rgba(255,255,255,0.4);font-size:20px;pointer-events:none;display:none;}
 </style></head><body>
-<div id="menu"><h2>Faction</h2><p style="font-size:12px;color:#aaa;">Clicking play will lock your mouse.<br>Press ESC to unlock.</p><button onclick="start('Survivor')">Survivor</button><button onclick="start('Killer')">Killer</button></div>
+<div id="menu"><h2>Faction</h2><p style="font-size:12px;color:#aaa;">Click a role, then click the screen to lock mouse.<br>Press ESC to unlock.</p><button onclick="start('Survivor')">Survivor</button><button onclick="start('Killer')">Killer</button></div>
 <div id="ui" style="display:none;"><div id="r"></div><div id="st"></div><div id="sv"></div></div>
 <div id="crosshair">+</div><canvas id="c"></canvas><script>
 const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
-let rRole="",run=false,keys={},click=false,p={x:0,y:0,s:100,sp:160,st:100,a:true,angle:0},bots=[],timer=180;
+let rRole="",run=false,keys={},click=false,p={x:0,y:0,s:100,sp:160,st:100,a:true,yaw:0,pitch:0},bots=[],timer=180;
 window.onresize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;};window.onresize();
 window.onkeydown=(e)=>keys[e.key.toLowerCase()]=true;window.onkeyup=(e)=>keys[e.key.toLowerCase()]=false;
 canvas.onclick=()=>{if(run){canvas.requestPointerLock();click=true;}};
-document.addEventListener('mousemove',(e)=>{if(document.pointerLockElement===canvas){p.angle+=(e.movementX*0.003);}});
+document.addEventListener('mousemove',(e)=>{if(document.pointerLockElement===canvas){
+p.yaw+=(e.movementX*0.003);p.pitch=Math.max(-1.4,Math.min(1.4,p.pitch-(e.movementY*0.003)));}});
 function start(role){
 rRole=role;document.getElementById("menu").style.display="none";document.getElementById("ui").style.display="block";
 document.getElementById("crosshair").style.display="block";document.getElementById("r").innerText="Role: "+role;
-p={x:0,y:0,s:role==="Killer"?135:100,sp:160,st:100,a:true,cd:0,angle:0};bots=[];let count=role==="Survivor"?6:7;
+p={x:0,y:0,s:role==="Killer"?135:100,sp:160,st:100,a:true,cd:0,yaw:0,pitch:0};bots=[];let count=role==="Survivor"?6:7;
 for(let i=0;i<count;i++)bots.push({t:"Survivor",x:(Math.random()-0.5)*800,y:(Math.random()-0.5)*800,s:100,a:true});
 if(role==="Survivor")bots.push({t:"Killer",x:400,y:400,s:125,cd:0});
 canvas.requestPointerLock();run=true;lt=performance.now();requestAnimationFrame(loop);
 }
-function proj(wx,wy){
-let dx=wx-p.x,dy=wy-p.y;let rx=dx*Math.cos(-p.angle)-dy*Math.sin(-p.angle),ry=dx*Math.sin(-p.angle)+dy*Math.cos(-p.angle);
-if(ry<=10)return null;let s=400/ry;return{x:(canvas.width/2)+(rx*s),y:(canvas.height/2),z:s,d:ry};
+function proj(wx,wy,wh=10){
+let dx=wx-p.x,dy=wy-p.y,dh=wh-0;
+let rx=dx*Math.cos(-p.yaw)-dy*Math.sin(-p.yaw),ry=dx*Math.sin(-p.yaw)+dy*Math.cos(-p.yaw),rz=dh;
+let rY=ry*Math.cos(-p.pitch)-rz*Math.sin(-p.pitch),rZ=ry*Math.sin(-p.pitch)+rz*Math.cos(-p.pitch);
+if(rY<=10)return null;let s=400/rY;return{x:(canvas.width/2)+(rx*s),y:(canvas.height/2)-(rZ*s),z:s,d:rY};
 }
 let lt=0;
 function loop(t){if(!run)return;let dt=(t-lt)/1000;lt=t;update(dt);draw();requestAnimationFrame(loop);}
@@ -34,7 +37,7 @@ timer-=dt;if(timer<=0)return end("TIME EXPIRED!");
 if(p.a){
 let mv=keys.w||keys.s||keys.a||keys.d,sp=p.s;
 if(rRole==="Survivor"&&keys.shift&&p.st>0&&mv){sp=p.sp;p.st=Math.max(0,p.st-35*dt);}else{p.st=Math.min(100,p.st+15*dt);}
-let fx=Math.sin(p.angle),fy=Math.cos(p.angle),rx=Math.cos(p.angle),ry=-Math.sin(p.angle);
+let fx=Math.sin(p.yaw),fy=Math.cos(p.yaw),rx=Math.cos(p.yaw),ry=-Math.sin(p.yaw);
 if(keys.w){p.x+=fx*sp*dt;p.y+=fy*sp*dt;}if(keys.s){p.x-=fx*sp*dt;p.y-=fy*sp*dt;}
 if(keys.a){p.x-=rx*sp*dt;p.y-=ry*sp*dt;}if(keys.d){p.x+=rx*sp*dt;p.y+=ry*sp*dt;}
 if(rRole==="Killer"){if(p.cd>0)p.cd-=dt;if(click&&p.cd<=0){p.cd=1.2;bots.forEach(b=>{if(b.t==="Survivor"&&b.a&&Math.hypot(b.x-p.x,b.y-p.y)<45)b.a=false;});}}}
@@ -51,13 +54,13 @@ if(total===0)end(rRole==="Killer"?"KILLER WINS!":"SURVIVORS DIED!");
 function draw(){
 ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle="#222";
 for(let i=-500;i<=500;i+=40){
-for(let j=-500;j<=500;j+=40){let pt=proj(i,j);if(pt){ctx.fillStyle="rgba(40,40,40,"+Math.min(1,pt.z*0.1)+")";ctx.fillRect(pt.x,pt.y,2,2);}}
+for(let j=-500;j<=500;j+=40){let pt=proj(i,j,0);if(pt){ctx.fillStyle="rgba(60,60,60,"+Math.min(1,pt.z*0.1)+")";ctx.fillRect(pt.x,pt.y,2,2);}}
 }
-let list=[];bots.forEach(b=>{if(b.t==="Survivor"&&!b.a)return;let pr=proj(b.x,b.y);if(pr)list.push({p:pr,c:b.t==="Killer"?"#f33":"#5f5",t:b.t});});
+let list=[];bots.forEach(b=>{if(b.t==="Survivor"&&!b.a)return;let pr1=proj(b.x,b.y,0),pr2=proj(b.x,b.y,30);if(pr1&&pr2)list.push({p1:pr1,p2:pr2,c:b.t==="Killer"?"#f33":"#5f5",t:b.t,d:pr1.d});});
 if(rRole==="Survivor"){let kil=bots.find(b=>b.t==="Killer");let d=Math.hypot(kil.x-p.x,kil.y-p.y);if(d<180){ctx.fillStyle="rgba(255,0,0,"+(1-(d/180))*0.15+")";ctx.fillRect(0,0,canvas.width,canvas.height);}}
-list.sort((a,b)=>b.p.d-a.p.d);
-list.forEach(e=>{let h=e.p.z*30;ctx.fillStyle=e.c;ctx.fillRect(e.p.x-h/4,e.p.y-h/2,h/2,h);
-ctx.fillStyle="#fff";ctx.font=Math.max(10,e.p.z*10)+"px sans-serif";ctx.textAlign="center";ctx.fillText(e.t,e.p.x,e.p.y-h/2-5);});
+list.sort((a,b)=>b.d-a.d);
+list.forEach(e=>{let w=Math.abs(e.p1.y-e.p2.y)/2;ctx.fillStyle=e.c;ctx.fillRect(e.p2.x-w/2,e.p2.y,w,Math.abs(e.p1.y-e.p2.y));
+ctx.fillStyle="#fff";ctx.font=Math.max(10,e.p1.z*10)+"px sans-serif";ctx.textAlign="center";ctx.fillText(e.t,e.p2.x,e.p2.y-5);});
 }
 function end(m){run=false;document.exitPointerLock();alert(m);document.getElementById("menu").style.display="block";document.getElementById("ui").style.display="none";document.getElementById("crosshair").style.display="none";}
 </script></body></html>
