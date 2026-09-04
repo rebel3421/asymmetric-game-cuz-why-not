@@ -1,23 +1,3 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><title>3D Horror</title><style>
-body{margin:0;background:#000;color:#fff;font-family:sans-serif;overflow:hidden;}
-canvas{display:block;width:100vw;height:100vh;cursor:pointer;}
-#ui{position:absolute;top:10px;left:10px;text-shadow:1px 1px 2px #000;pointer-events:none;font-size:14px;}
-#menu{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;padding:20px;border:2px solid #333;text-align:center;z-index:10;}
-button{background:#800;color:#fff;border:none;padding:10px 20px;margin:5px;cursor:pointer;font-weight:bold;}
-#puz{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);border:2px solid #555;padding:20px;text-align:center;display:none;z-index:5;}
-#sc-box{position:relative;width:160px;height:160px;border-radius:50%;border:4px solid #333;margin:15px auto;}
-#sc-zone{position:absolute;width:160px;height:160px;border-radius:50%;border:4px solid transparent;border-top-color:#0f0;transform:rotate(45deg);top:-4px;left:-4px;}
-#sc-hand{position:absolute;width:2px;height:80px;background:#ff0;left:79px;top:0;transform-origin:bottom center;}
-#fx-box{position:absolute;top:10px;right:10px;pointer-events:none;z-index:5;}
-.fx-tag{background:rgba(136,0,0,0.85);border:1px solid #f00;color:#fff;padding:6px 12px;font-size:12px;font-weight:bold;margin-bottom:5px;text-shadow:1px 1px 1px #000;}
-.rage-tag{background:rgba(230,90,0,0.85);border:1px solid #ffaa00;}
-</style></head><body>
-<div id="menu"><h2>Faction</h2><p style="font-size:12px;color:#aaa;">Click role, click screen to lock mouse.<br>Use ARROW KEYS to move & steer.</p>
-<button onclick="start('Survivor')">Survivor</button><button onclick="start('Killer')">Killer</button></div>
-<div id="ui" style="display:none;"><div id="r"></div><div id="st"></div><div id="sv"></div><div id="genUI">Gens Left: 3</div><div id="abilUI" style="margin-top:5px;color:#ff3333;font-weight:bold;font-size:12px;"></div></div>
-<div id="fx-box"></div>
-<div id="puz"><h3>REPAIR GENERATOR</h3><p>Press <b>SPACEBAR</b> when the yellow hand hits the <b>GREEN ZONE</b>!</p><div id="sc-box"><div id="sc-zone"></div><div id="sc-hand"></div></div><p id="puz-stat" style="color:#aaa;">Progress: 0%</p></div>
-<canvas id="c"></canvas><script>
 const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
 let rRole="",run=false,keys={},click=false,p={x:0,y:0,s:100,sp:160,st:100,a:true,yaw:0,pitch:0.45},bots=[],pil=[],gens=[],timer=180,lt=0;
 let repairing=null,scAngle=0,scZoneStart=0,scActive=false,scSuccess=45;
@@ -81,32 +61,44 @@ if(rRole==="Survivor"&&keys.Control&&!p.fx.Helpless){gens.forEach(g=>{if(!g.done
 }
 let kil=rRole==="Killer"?p:bots.find(b=>b.t==="Killer"),svC=0;
 bots.forEach(b=>{
-if(b.t==="Survivor"){if(!b.a)return;svC++;let d=Math.hypot(kil.x-b.x,kil.y-b.y);if(d<180){b.x-=(kil.x-b.x)/d*b.s*dt;b.y-=(kil.y-b.y)/d*b.s*dt;}else{b.x+=Math.sin(performance.now()/500)*5*dt;}}
-else if(b.t==="Killer"&&kil!==p){if(b.cdSlash>0)b.cdSlash-=dt;if(b.cdDecap>0)b.cdDecap-=dt;if(b.rageTimer>0){b.rageTimer-=dt;b.st=70;}else{if(Math.random()<0.005&&b.cdRage<=0){b.cdRage=15;b.rageTimer=30;}}
-let cl=null,mD=Infinity;if(rRole==="Survivor"&&p.a){mD=Math.hypot(p.x-b.x,p.y-b.y);cl=p;}
-bots.forEach(s=>{if(s.t==="Survivor"&&s.a){let d=Math.hypot(s.x-b.x,s.y-b.y);if(d<mD){mD=d;cl=s;}}});
-if(cl){b.x+=(cl.x-b.x)/mD*((b.rageTimer>0?90:b.s))*dt;b.y+=(cl.y-b.y)/mD*((b.rageTimer>0?90:b.s))*dt;
-if(mD<45&&b.cdSlash<=0){b.cdSlash=0.5;if(b.rageTimer>0){b.x+=Math.sin(Math.atan2(cl.x-b.x,cl.y-b.y))*45;b.y+=Math.cos(Math.atan2(cl.x-b.x,cl.y-b.y))*45;}
-if(cl===p&&p.rageTimer>0){}else{cl.hp-=(b.rageTimer>0?35:20);if(Math.random()<0.3&&b.cdDecap<=0){b.cdDecap=10;applyHelpless(cl,6.0);}if(cl.hp<=0){cl.a=false;if(cl===p){exitRepair();end("YOU DIED!");}}}}}}});
-let gLeft=gens.filter(g=>!g.done).length;document.getElementById("genUI").innerText="Gens Left: "+gLeft;
-let total=svC+(rRole==="Survivor"&&p.a?1:0);document.getElementById("sv").innerText="Survivors: "+total+" | Time: "+Math.ceil(timer);
-document.getElementById("st").innerText=rRole==="Survivor"?"Stamina: "+Math.floor(p.st)+"% | HP: "+p.hp:"Stamina: "+Math.floor(p.st)+"% | HP: INVINCIBLE";
-let fxBox=document.getElementById("fx-box");fxBox.innerHTML="";if(p.fx.Helpless)fxBox.innerHTML+='<div class="fx-tag">HELPLESS ('+Math.ceil(p.fx.Helpless)+'s)</div>';if(p.rageTimer>0)fxBox.innerHTML+='<div class="fx-tag rage-tag">ENRAGED ('+Math.ceil(p.rageTimer)+'s)</div>';
-if(rRole==="Killer"){document.getElementById("abilUI").innerHTML="[LMB] Slash: "+(p.cdSlash>0?p.cdSlash.toFixed(1)+"s":"READY")+" | [Q] Decapitate: "+(p.cdDecap>0?p.cdDecap.toFixed(1)+"s":"READY")+"<br>[E] Gashing Wound: "+(p.cdGash>0?p.cdGash.toFixed(1)+"s":"READY")+" | [R] Raging Pace: "+(p.cdRage>0?p.cdRage.toFixed(1)+"s":"READY");}else{document.getElementById("abilUI").innerText="";}
-if(gLeft===0)end("SURVIVORS REPAIRED ALL GENS AND ESCAPED!");if(total===0)end(rRole==="Killer"?"KILLER WINS!":"SURVIVORS DIED!");
+if(b.t==="Survivor"){if(!b.a)return;svC++;let d=Math.hypot(kil.x-b.x,kil.y-b.y);
+if(d<180){let a=Math.atan2(b.y-kil.y,b.x-kil.x);b.x+=Math.cos(a)*b.s*1.2*dt;b.y+=Math.sin(a)*b.s*1.2*dt;}
+else{let g=gens.find(x=>!x.done);if(g){let a=Math.atan2(g.y-b.y,g.x-b.x);b.x+=Math.cos(a)*b.s*0.6*dt;b.y+=Math.sin(a)*b.s*0.6*dt;if(Math.hypot(g.x-b.x,g.y-b.y)<15)g.prog=Math.min(100,g.prog+4*dt);if(g.prog>=100)g.done=true;}}}
+else if(b.t==="Killer"){let t=bots.filter(x=>x.t==="Survivor"&&x.a).sort((m,n)=>Math.hypot(m.x-p.x,m.y-p.y)-Math.hypot(n.x-p.x,n.y-p.y))[0];if(!t)t=p;
+let a=Math.atan2(t.y-b.y,t.x-b.x);b.x+=Math.cos(a)*b.s*dt;b.y+=Math.sin(a)*b.s*dt;if(Math.hypot(t.x-b.x,t.y-b.y)<40&&Math.random()<0.05){t.hp-=15;if(t.hp<=0)t.a=false;}}
+});
+if(rRole==="Killer"&&svC===0)end("KILLER WINS!");
+let left=gens.filter(g=>!g.done).length;document.getElementById("genUI").innerText="Gens Left: "+left;
+if(left===0)end("SURVIVORS ESCAPED!");
+if(rRole==="Survivor"&&!p.a)end("YOU DIED!");
 }
 function draw(){
-ctx.clearRect(0,0,canvas.width,canvas.height);
-for(let i=-400;i<=400;i+=40){for(let j=-400;j<=400;j+=40){let d=Math.hypot(i-p.x,j-p.y);if(d>MV)continue;let pt=proj(i,j,0);if(pt){ctx.fillStyle="rgba(80,80,90,"+(1-(d/MV))*0.4+")";ctx.fillRect(pt.x,pt.y,2,2);}}}
-let lst=[];bots.forEach(b=>{if(b.t==="Survivor"&&!b.a)return;let d=Math.hypot(b.x-p.x,b.y-p.y);if(d>MV)return;let pr1=proj(b.x,b.y,0),pr2=proj(b.x,b.y,30);if(pr1&&pr2)lst.push({p1:pr1,p2:pr2,c:b.t==="Killer"?(b.rageTimer>0?"255,140,0":"255,50,50"):"80,240,80",t:b.t+(b.fx.Helpless?" [HELPLESS]":"")+(b.t==="Killer"&&b.rageTimer>0?" [ENRAGED]":"")+" (HP:"+b.hp+")",d:pr1.d,ty:"b"});});
-pil.forEach(pl=>{let dP=Math.hypot(pl.x-p.x,pl.y-p.y);if(dP>MV)return;let pr1=proj(pl.x,pl.y,0),pr2=proj(pl.x,pl.y,60);if(pr1&&pr2)lst.push({p1:pr1,p2:pr2,c:"20,20,25",t:"",d:pr1.d,ty:"p",w:pl.r});});
-gens.forEach(g=>{let dP=Math.hypot(g.x-p.x,g.y-p.y);if(dP>MV)return;let pr1=proj(g.x,g.y,0),pr2=proj(g.x,g.y,45);if(pr1&&pr2)lst.push({p1:pr1,p2:g.done?proj(g.x,g.y,25):pr2,c:g.done?"50,255,50":"230,130,20",t:g.done?"GEN [DONE]":"GEN [Ctrl]",d:pr1.d,ty:"g",w:20});});
-let selfP1=proj(p.x,p.y,0),selfP2=proj(p.x,p.y,30);if(selfP1&&selfP2){let headX=selfP1.x+Math.sin(p.yaw)*15*selfP1.z,headY=selfP2.y;lst.push({p1:selfP1,p2:selfP2,hx:headX,hy:headY,c:rRole==="Killer"?(p.rageTimer>0?"255,150,0":"255,100,100"):"100,200,255",t:"YOU"+(p.fx.Helpless?" [HELPLESS]":"")+(p.rageTimer>0?" [ENRAGED]":""),d:selfP1.d,ty:"player"});}
-if(rRole==="Survivor"||p.rageTimer>0){let k=rRole==="Killer"?p:bots.find(b=>b.t==="Killer");if(k){let d=Math.hypot(k.x-p.x,k.y-p.y);if(d<180||p.rageTimer>0){ctx.fillStyle=p.rageTimer>0?"rgba(255,100,0,0.06)":"rgba(255,0,0,"+(1-(d/180))*0.15+")";ctx.fillRect(0,0,canvas.width,canvas.height);}}}
-lst.sort((a,b)=>b.d-a.d);
-lst.forEach(e=>{let f=Math.max(0,1-(e.d/MV)),h=Math.abs(e.p1.y-e.p2.y),w=(e.ty==="p"||e.ty==="g")?(e.w*e.p1.z):h/2;
-if(e.ty==="player"){ctx.fillStyle="rgba("+e.c+","+f+")";ctx.fillRect(e.p2.x-w/2,e.p2.y,w,h);ctx.fillStyle="rgba(255,255,0,"+f+")";ctx.beginPath();ctx.arc(e.hx,e.hy+h*0.3,w*0.3,0,Math.PI*2);ctx.fill();ctx.fillStyle="rgba(255,255,255,"+f+")";ctx.font=Math.max(10,e.p1.z*10)+"px sans-serif";ctx.textAlign="center";ctx.fillText(e.t,e.p2.x,e.p2.y-5);
-}else{ctx.fillStyle="rgba("+e.c+","+f+")";ctx.fillRect(e.p2.x-w/2,e.p2.y,w,h);if(e.ty==="b"||e.ty==="g"){ctx.fillStyle="rgba(255,255,255,"+f+")";ctx.font=Math.max(10,e.p1.z*10)+"px sans-serif";ctx.textAlign="center";ctx.fillText(e.t,e.p2.x,e.p2.y-5);}if(e.ty==="p"){ctx.strokeStyle="rgba(70,70,80,"+(f*0.5)+")";ctx.lineWidth=Math.max(1,e.p1.z*0.5);ctx.strokeRect(e.p2.x-w/2,e.p2.y,w,h);}}});
+ctx.fillStyle="#05050a";ctx.fillRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle="#111118";ctx.beginPath();ctx.arc(canvas.width/2,canvas.height/2,400,0,Math.PI*2);ctx.fill();
+let q=[];
+gens.forEach(g=>{let s=proj(g.x,g.y,0);if(s){q.push({z:s.d,render:()=>{
+ctx.fillStyle=g.done?"#0f0":"#555";ctx.fillRect(s.x-s.z*10,s.y-s.z*20,s.z*20,s.z*20);
+ctx.fillStyle="#fff";ctx.font=(s.z*4)+"px sans-serif";ctx.fillText(Math.floor(g.prog)+"%",s.x-s.z*5,s.y-s.z*22);
+}});}});
+pil.forEach(p=>{let s=proj(p.x,p.y,0);if(s){q.push({z:s.d,render:()=>{ctx.fillStyle="#333";ctx.beginPath();ctx.arc(s.x,s.y,s.z*p.r,0,Math.PI*2);ctx.fill();}});}});
+bots.forEach(b=>{if(!b.a)return;let s=proj(b.x,b.y,0);if(s){q.push({z:s.d,render:()=>{
+ctx.fillStyle=b.t==="Killer"?"#f00":"#0af";ctx.beginPath();ctx.arc(s.x,s.y,s.z*12,0,Math.PI*2);ctx.fill();
+ctx.fillStyle="#fff";ctx.font=(s.z*4)+"px sans-serif";ctx.fillText(b.t,s.x-s.z*10,s.y-s.z*16);
+}});}});
+q.sort((a,b)=>b.z-a.z).forEach(i=>i.render());
+document.getElementById("r").innerText="Role: "+rRole;
+document.getElementById("st").innerText="Stamina: "+Math.floor(p.st)+"%";
+document.getElementById("sv").innerText="HP: "+(rRole==="Survivor"?p.hp:"N/A");
+let fxB=document.getElementById("fx-box");fxB.innerHTML="";
+if(p.fx.Helpless)fxB.innerHTML+='<div class="fx-tag">HELPLESS ('+p.fx.Helpless.toFixed(1)+'s)</div>';
+if(p.rageTimer>0)fxB.innerHTML+='<div class="fx-tag rage-tag">BLOOD RAGE ('+p.rageTimer.toFixed(1)+'s)</div>';
+if(rRole==="Killer"){
+let abUI=document.getElementById("abilUI");
+abUI.innerHTML="[L-Click] Slash "+(p.cdSlash>0?"("+p.cdSlash.toFixed(1)+"s)":"[READY]")+"<br>"+
+"[Q] Decapitate "+(p.cdDecap>0?"("+p.cdDecap.toFixed(1)+"s)":"[READY]")+"<br>"+
+"[E] Gashing Wound "+(p.cdGash>0?"("+p.cdGash.toFixed(1)+"s)":"[READY]")+"<br>"+
+"[R] Blood Rage "+(p.cdRage>0?"("+p.cdRage.toFixed(1)+"s)":"[READY]");
 }
-function end(m){run=false;document.exitPointerLock();alert(m);document.getElementById("menu").style.display="block";document.getElementById("ui").style.display="none";document.getElementById("puz").style.display="none";}
+}
+function end(m){run=false;document.exitPointerLock();alert(m);location.reload();}
 </script></body></html>
