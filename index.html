@@ -1,146 +1,59 @@
--- ReplicatedStorage -> CharacterConfig (ModuleScript)
-local CharacterConfig = {}
-
-CharacterConfig.Settings = {
-	Survivor = {
-		WalkSpeed = 16,
-		SprintSpeed = 22,
-		MaxStamina = 100,
-		StaminaRegen = 15,
-		MaxAbilities = 2 -- Forsaken survivors usually get 2 abilities
-	},
-	Killer = {
-		WalkSpeed = 24, -- Killers must be naturally faster to catch looping survivors
-		SprintSpeed = 24, -- Some killers don't use stamina, just high base speed
-		MaxStamina = 1000, 
-		MaxAbilities = 4 -- Forsaken killers get up to 4 abilities
-	}
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>3D Horror</title><style>
+body{margin:0;background:#050505;color:#fff;font-family:sans-serif;overflow:hidden;}
+canvas{display:block;width:100vw;height:100vh;}
+#ui{position:absolute;top:10px;left:10px;text-shadow:1px 1px 2px #000;pointer-events:none;}
+#menu{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;padding:20px;border:2px solid #333;text-align:center;}
+button{background:#800;color:#fff;border:none;padding:10px 20px;margin:5px;cursor:pointer;font-weight:bold;}
+</style></head><body>
+<div id="menu"><h2>Faction</h2><button onclick="start('Survivor')">Survivor</button><button onclick="start('Killer')">Killer</button></div>
+<div id="ui" style="display:none;"><div id="r"></div><div id="st"></div><div id="sv"></div></div>
+<canvas id="c"></canvas><script>
+const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
+let rRole="",run=false,keys={},click=false,p={x:0,y:0,s:100,sp:160,st:100,a:true},bots=[],timer=180;
+window.onresize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;};window.onresize();
+window.onkeydown=(e)=>keys[e.key.toLowerCase()]=true;window.onkeyup=(e)=>keys[e.key.toLowerCase()]=false;
+window.onmousedown=()=>click=true;
+function start(role){
+rRole=role;document.getElementById("menu").style.display="none";document.getElementById("ui").style.display="block";
+document.getElementById("r").innerText="Role: "+role;p={x:0,y:0,s:role==="Killer"?135:100,sp:160,st:100,a:true,cd:0};
+bots=[];let count=role==="Survivor"?6:7;
+for(let i=0;i<count;i++)bots.push({t:"Survivor",x:(Math.random()-0.5)*800,y:(Math.random()-0.5)*800,s:100,a:true});
+if(role==="Survivor")bots.push({t:"Killer",x:400,y:400,s:125,cd:0});
+run=true;lt=performance.now();requestAnimationFrame(loop);
 }
-
-return CharacterConfig
--- Tool (Weapon) -> AttackScript (Server Script)
-local tool = script.Parent
-local config = require(game:GetService("ReplicatedStorage"):WaitForChild("CharacterConfig"))
-
-local DAMAGE_AMOUNT = 40
-local ATTACK_RANGE = 7 -- Studs
-local COOLDOWN = 1.2
-local db = false
-
-tool.Activated:Connect(function()
-	if db then return end
-	db = true
-	
-	local character = tool.Parent
-	local humanoidRoot = character:FindFirstChild("HumanoidRootPart")
-	
-	-- Play swing animation here if available
-	
-	-- Simple Distance/Magnitude Raycast Hitbox
-	for _, player in ipairs(game.Players:GetPlayers()) do
-		if player.Character and player.Character ~= character then
-			local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
-			local targetHumanoid = player.Character:FindFirstChildOfClass("Humanoid")
-			
-			if targetRoot and targetHumanoid and targetHumanoid.Health > 0 then
-				-- Check distance between killer and survivor
-				local distance = (humanoidRoot.Position - targetRoot.Position).Magnitude
-				if distance <= ATTACK_RANGE then
-					targetHumanoid:TakeDamage(DAMAGE_AMOUNT)
-					print(player.Name .. " was hit by the Slasher!")
-					-- Trigger blood hunt or survivor highlight logic here
-				end
-			end
-		end
-	end
-	
-	task.wait(COOLDOWN)
-	db = false
-end)
--- StarterPlayerScripts -> SprintController (LocalScript)
-local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local config = require(ReplicatedStorage:WaitForChild("CharacterConfig"))
-local localPlayer = Players.LocalPlayer
-
-local currentStamina = config.Settings.Survivor.MaxStamina
-local isSprinting = false
-
-UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then return end
-	if input.KeyCode == Enum.KeyCode.LeftShift then
-		isSprinting = true
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-	if input.KeyCode == Enum.KeyCode.LeftShift then
-		isSprinting = false
-	end
-end)
-
-RunService.Heartbeat:Connect(function(deltaTime)
-	local character = localPlayer.Character
-	if not character then return end
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid then return end
-	
-	-- Determine if player is actually moving forward/sideways
-	local isMoving = humanoid.MoveDirection.Magnitude > 0
-
-	if isSprinting and isMoving and currentStamina > 0 then
-		humanoid.WalkSpeed = config.Settings.Survivor.SprintSpeed
-		currentStamina = math.max(0, currentStamina - (20 * deltaTime)) -- Deplete stamina
-	else
-		humanoid.WalkSpeed = config.Settings.Survivor.WalkSpeed
-		currentStamina = math.min(config.Settings.Survivor.MaxStamina, currentStamina + (config.Settings.Survivor.StaminaRegen * deltaTime)) -- Regen
-	end
-	
-	-- Optional: Update a UI Stamina Bar on the screen using currentStamina variable
-end)
--- StarterCharacterScripts -> TerrorRadius (LocalScript)
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-
-local localPlayer = Players.LocalPlayer
-local MAX_RADIUS = 60 -- Distance in studs where the heartbeat starts playing
-
--- Ensure you have a heartbeat sound asset inserted inside this script
-local heartbeatSound = script:WaitForChild("HeartbeatSound") 
-
-RunService.Heartbeat:Connect(function()
-	local localCharacter = localPlayer.Character
-	local localRoot = localCharacter and localCharacter:FindFirstChild("HumanoidRootPart")
-	if not localRoot then return end
-	
-	local closestDistance = MAX_RADIUS
-	
-	-- Find the Killer in the game session
-	for _, player in ipairs(game.Players:GetPlayers()) do
-		-- Assuming your Round System sets an attribute or Tag marking who the killer is
-		if player:GetAttribute("IsKiller") == true and player.Character then
-			local killerRoot = player.Character:FindFirstChild("HumanoidRootPart")
-			if killerRoot then
-				local dist = (localRoot.Position - killerRoot.Position).Magnitude
-				if dist < closestDistance then
-					closestDistance = dist
-				end
-			end
-		end
-	end
-	
-	-- If killer is inside the radius, play and dynamically alter heartbeat speed/volume
-	if closestDistance < MAX_RADIUS then
-		if not heartbeatSound.IsPlaying then heartbeatSound:Play() end
-		
-		-- Scale volume and playback speed based on distance (closer = louder/faster)
-		local intensity = 1 - (closestDistance / MAX_RADIUS)
-		heartbeatSound.Volume = intensity
-		heartbeatSound.PlaybackSpeed = 1 + (intensity * 0.8) 
-	else
-		heartbeatSound:Stop()
-	end
-end)
+function proj(wx,wy){
+let rx=wx-p.x,ry=wy-p.y,d=ry+150;if(d<=10)return null;let s=250/d;
+return{x:(canvas.width/2)+(rx*s),y:(canvas.height/2)-(10*s),z:s,d:d};
+}
+let lt=0;
+function loop(t){if(!run)return;let dt=(t-lt)/1000;lt=t;update(dt);draw();requestAnimationFrame(loop);}
+function update(dt){
+timer-=dt;if(timer<=0)return end("TIME EXPIRED!");
+if(p.a){
+let mv=keys.w||keys.s||keys.a||keys.d,sp=p.s;
+if(rRole==="Survivor"&&keys.shift&&p.st>0&&mv){sp=p.sp;p.st=Math.max(0,p.st-35*dt);}else{p.st=Math.min(100,p.st+15*dt);}
+if(keys.w)p.y+=sp*dt;if(keys.s)p.y-=sp*dt;if(keys.a)p.x-=sp*dt;if(keys.d)p.x+=sp*dt;
+if(rRole==="Killer"){if(p.cd>0)p.cd-=dt;if(click&&p.cd<=0){p.cd=1.2;bots.forEach(b=>{if(b.t==="Survivor"&&b.a&&Math.hypot(b.x-p.x,b.y-p.y)<45)b.a=false;});}}}
+click=false;let kil=rRole==="Killer"?p:bots.find(b=>b.t==="Killer"),svC=0;
+bots.forEach(b=>{
+if(b.t==="Survivor"){if(!b.a)return;svC++;let d=Math.hypot(kil.x-b.x,kil.y-b.y);if(d<200){b.x-=(kil.x-b.x)/d*b.s*dt;b.y-=(kil.y-b.y)/d*b.s*dt;}else{b.x+=Math.sin(performance.now()/500)*5*dt;}}
+else if(b.t==="Killer"){if(b.cd>0)b.cd-=dt;let cl=null,mD=Infinity;if(rRole==="Survivor"&&p.a){mD=Math.hypot(p.x-b.x,p.y-b.y);cl=p;}
+bots.forEach(s=>{if(s.t==="Survivor"&&s.a){let d=Math.hypot(s.x-b.x,s.y-b.y);if(d<mD){mD=d;cl=s;}}});
+if(cl){b.x+=(cl.x-b.x)/mD*b.s*dt;b.y+=(cl.y-b.y)/mD*b.s*dt;if(mD<40&&b.cd<=0){b.cd=1.5;cl.a=false;if(cl===p)end("YOU DIED!");}}}});
+let total=svC+(rRole==="Survivor"&&p.a?1:0);document.getElementById("sv").innerText="Survivors: "+total+" | Time: "+Math.ceil(timer);
+document.getElementById("st").innerText=rRole==="Survivor"?"Stamina: "+Math.floor(p.st)+"%":"Attack: "+(p.cd>0?"CD":"READY");
+if(total===0)end(rRole==="Killer"?"KILLER WINS!":"SURVIVORS DIED!");
+}
+function draw(){
+ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle="#222";
+for(let i=-500;i<=500;i+=50){let h1=proj(-500,i),h2=proj(500,i),v1=proj(i,-500),v2=proj(i,500);
+if(h1&&h2){ctx.beginPath();ctx.moveTo(h1.x,h1.y);ctx.lineTo(h2.x,h2.y);ctx.stroke();}
+if(v1&&v2){ctx.beginPath();ctx.moveTo(v1.x,v1.y);ctx.lineTo(v2.x,v2.y);ctx.stroke();}}
+let list=[];if(p.a){let pr=proj(p.x,p.y);if(pr)list.push({p:pr,c:rRole==="Killer"?"#f33":"#39f",t:"YOU"});}
+bots.forEach(b=>{if(b.t==="Survivor"&&!b.a)return;let pr=proj(b.x,b.y);if(pr)list.push({p:pr,c:b.t==="Killer"?"#f33":"#5f5",t:b.t});});
+list.sort((a,b)=>b.p.d-a.p.d);
+list.forEach(e=>{ctx.fillStyle=e.c;ctx.beginPath();ctx.arc(e.p.x,e.p.y,e.p.z*15,0,Math.PI*2);ctx.fill();
+ctx.fillStyle="#fff";ctx.font=(e.p.z*9)+"px sans-serif";ctx.textAlign="center";ctx.fillText(e.t,e.p.x,e.p.y-e.p.z*15-5);});
+}
+function end(m){run=false;alert(m);document.getElementById("menu").style.display="block";document.getElementById("ui").style.display="none";}
+</script></body></html>
