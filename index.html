@@ -15,7 +15,7 @@ window.onresize=()=>{canvas.width=window.innerWidth;canvas.height=window.innerHe
 window.onkeydown=(e)=>keys[e.key.toLowerCase()]=true;window.onkeyup=(e)=>keys[e.key.toLowerCase()]=false;
 canvas.onclick=()=>{if(run){canvas.requestPointerLock();click=true;}};
 document.addEventListener('mousemove',(e)=>{if(document.pointerLockElement===canvas){
-p.yaw+=(e.movementX*0.003);p.pitch=Math.max(-1.4,Math.min(1.4,p.pitch-(e.movementY*0.003)));}});
+p.yaw+=(e.movementX*0.003);p.pitch=Math.max(-1.4,Math.min(1.4,p.pitch+(e.movementY*0.003)));}});
 function start(role){
 rRole=role;document.getElementById("menu").style.display="none";document.getElementById("ui").style.display="block";
 document.getElementById("crosshair").style.display="block";document.getElementById("r").innerText="Role: "+role;
@@ -26,8 +26,8 @@ canvas.requestPointerLock();run=true;lt=performance.now();requestAnimationFrame(
 }
 function proj(wx,wy,wh=10){
 let dx=wx-p.x,dy=wy-p.y,dh=wh-0;
-let rx=dx*Math.cos(-p.yaw)-dy*Math.sin(-p.yaw),ry=dx*Math.sin(-p.yaw)+dy*Math.cos(-p.yaw),rz=dh;
-let rY=ry*Math.cos(-p.pitch)-rz*Math.sin(-p.pitch),rZ=ry*Math.sin(-p.pitch)+rz*Math.cos(-p.pitch);
+let rx=dx*Math.cos(p.yaw)+dy*Math.sin(p.yaw),ry=-dx*Math.sin(p.yaw)+dy*Math.cos(p.yaw),rz=dh;
+let rY=ry*Math.cos(p.pitch)-rz*Math.sin(p.pitch),rZ=ry*Math.sin(p.pitch)+rz*Math.cos(p.pitch);
 if(rY<=10)return null;let s=400/rY;return{x:(canvas.width/2)+(rx*s),y:(canvas.height/2)-(rZ*s),z:s,d:rY};
 }
 let lt=0;
