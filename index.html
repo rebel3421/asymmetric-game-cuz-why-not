@@ -65,7 +65,7 @@ let pr1=proj(b.x,b.y,0),pr2=proj(b.x,b.y,30);if(pr1&&pr2)lst.push({p1:pr1,p2:pr2
 pil.forEach(pl=>{let dP=Math.hypot(pl.x-p.x,pl.y-p.y);if(dP>MV)return;
 let pr1=proj(pl.x,pl.y,0),pr2=proj(pl.x,pl.y,60);if(pr1&&pr2)lst.push({p1:pr1,p2:pr2,c:"20,20,25",t:"",d:pr1.d,ty:"p",w:pl.r});});
 let selfP1=proj(p.x,p.y,0),selfP2=proj(p.x,p.y,30);if(selfP1&&selfP2)lst.push({p1:selfP1,p2:selfP2,c:rRole==="Killer"?"255,100,100":"100,200,255",t:"YOU",d:selfP1.d,ty:"b"});
-if(rRole==="Survivor"){let k=bots.find(b=>b.t==="Killer"),d=Math.hypot(k.x-p.x,k.y-b.y);if(d<180){ctx.fillStyle="rgba(255,0,0,"+(1-(d/180))*0.15+")";ctx.fillRect(0,0,canvas.width,canvas.height);}}
+if(rRole==="Survivor"){let k=bots.find(b=>b.t==="Killer"),d=Math.hypot(k.x-p.x,k.y-p.y);if(d<180){ctx.fillStyle="rgba(255,0,0,"+(1-(d/180))*0.15+")";ctx.fillRect(0,0,canvas.width,canvas.height);}}
 lst.sort((a,b)=>b.d-a.d);
 lst.forEach(e=>{let f=Math.max(0,1-(e.d/MV)),h=Math.abs(e.p1.y-e.p2.y),w=e.ty==="p"?(e.w*e.p1.z):h/2;
 if(e.ty==="b"){ctx.fillStyle="rgba("+e.c+","+f+")";ctx.fillRect(e.p2.x-w/2,e.p2.y,w,h);
