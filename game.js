@@ -1,3 +1,23 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>3D Horror</title><style>
+body{margin:0;background:#000;color:#fff;font-family:sans-serif;overflow:hidden;}
+canvas{display:block;width:100vw;height:100vh;cursor:pointer;}
+#ui{position:absolute;top:10px;left:10px;text-shadow:1px 1px 2px #000;pointer-events:none;font-size:14px;}
+#menu{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;padding:20px;border:2px solid #333;text-align:center;z-index:10;}
+button{background:#800;color:#fff;border:none;padding:10px 20px;margin:5px;cursor:pointer;font-weight:bold;}
+#puz{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);border:2px solid #555;padding:20px;text-align:center;display:none;z-index:5;}
+#sc-box{position:relative;width:160px;height:160px;border-radius:50%;border:4px solid #333;margin:15px auto;}
+#sc-zone{position:absolute;width:160px;height:160px;border-radius:50%;border:4px solid transparent;border-top-color:#0f0;transform:rotate(45deg);top:-4px;left:-4px;}
+#sc-hand{position:absolute;width:2px;height:80px;background:#ff0;left:79px;top:0;transform-origin:bottom center;}
+#fx-box{position:absolute;top:10px;right:10px;pointer-events:none;z-index:5;}
+.fx-tag{background:rgba(136,0,0,0.85);border:1px solid #f00;color:#fff;padding:6px 12px;font-size:12px;font-weight:bold;margin-bottom:5px;text-shadow:1px 1px 1px #000;}
+.rage-tag{background:rgba(230,90,0,0.85);border:1px solid #ffaa00;}
+</style></head><body>
+<div id="menu"><h2>3D Horror Arena</h2><p style="font-size:12px;color:#aaa;">Click start to roll a random 50/50 role assignment.<br>Use ARROW KEYS to move & steer.</p>
+<button onclick="rollRoleAndStart()">START GAME</button></div>
+<div id="ui" style="display:none;"><div id="r"></div><div id="st"></div><div id="sv"></div><div id="genUI">Gens Left: 3</div><div id="abilUI" style="margin-top:5px;color:#ff3333;font-weight:bold;font-size:12px;"></div></div>
+<div id="fx-box"></div>
+<div id="puz"><h3>REPAIR GENERATOR</h3><p>Press <b>SPACEBAR</b> when the yellow hand hits the <b>GREEN ZONE</b>!</p><div id="sc-box"><div id="sc-zone"></div><div id="sc-hand"></div></div><p id="puz-stat" style="color:#aaa;">Progress: 0%</p></div>
+<canvas id="c"></canvas><script>
 const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
 let rRole="",run=false,keys={},click=false,p={x:0,y:0,s:100,sp:160,st:100,a:true,yaw:0,pitch:0.45},bots=[],pil=[],gens=[],timer=180,lt=0;
 let repairing=null,scAngle=0,scZoneStart=0,scActive=false,scSuccess=45;
@@ -6,6 +26,7 @@ window.onkeydown=(e)=>{keys[e.key]=true;if(e.key===" "&&scActive)checkSkillCheck
 canvas.onclick=()=>{if(run){if(!repairing)canvas.requestPointerLock();if(rRole==="Killer"&&p.cdSlash<=0)useSlash();}};
 document.addEventListener('mousemove',(e)=>{if(document.pointerLockElement===canvas&&!repairing){
 p.yaw-=(e.movementX*0.003);p.pitch=Math.max(0.2,Math.min(0.7,p.pitch-(e.movementY*0.002)));}});
+function rollRoleAndStart(){let rolledRole=Math.random()<0.5?"Survivor":"Killer";start(rolledRole);}
 function start(role){
 rRole=role;document.getElementById("menu").style.display="none";document.getElementById("ui").style.display="block";
 p={x:0,y:0,s:role==="Killer"?135:100,sp:160,st:100,hp:100,a:true,cdSlash:0,cdDecap:0,cdGash:0,cdRage:0,rageTimer:0,yaw:0,pitch:0.45,fx:{}};bots=[],pil=[],gens=[],repairing=null,scActive=false;let cnt=role==="Survivor"?4:5;
