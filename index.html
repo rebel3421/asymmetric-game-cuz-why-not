@@ -1,0 +1,146 @@
+-- ReplicatedStorage -> CharacterConfig (ModuleScript)
+local CharacterConfig = {}
+
+CharacterConfig.Settings = {
+	Survivor = {
+		WalkSpeed = 16,
+		SprintSpeed = 22,
+		MaxStamina = 100,
+		StaminaRegen = 15,
+		MaxAbilities = 2 -- Forsaken survivors usually get 2 abilities
+	},
+	Killer = {
+		WalkSpeed = 24, -- Killers must be naturally faster to catch looping survivors
+		SprintSpeed = 24, -- Some killers don't use stamina, just high base speed
+		MaxStamina = 1000, 
+		MaxAbilities = 4 -- Forsaken killers get up to 4 abilities
+	}
+}
+
+return CharacterConfig
+-- Tool (Weapon) -> AttackScript (Server Script)
+local tool = script.Parent
+local config = require(game:GetService("ReplicatedStorage"):WaitForChild("CharacterConfig"))
+
+local DAMAGE_AMOUNT = 40
+local ATTACK_RANGE = 7 -- Studs
+local COOLDOWN = 1.2
+local db = false
+
+tool.Activated:Connect(function()
+	if db then return end
+	db = true
+	
+	local character = tool.Parent
+	local humanoidRoot = character:FindFirstChild("HumanoidRootPart")
+	
+	-- Play swing animation here if available
+	
+	-- Simple Distance/Magnitude Raycast Hitbox
+	for _, player in ipairs(game.Players:GetPlayers()) do
+		if player.Character and player.Character ~= character then
+			local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+			local targetHumanoid = player.Character:FindFirstChildOfClass("Humanoid")
+			
+			if targetRoot and targetHumanoid and targetHumanoid.Health > 0 then
+				-- Check distance between killer and survivor
+				local distance = (humanoidRoot.Position - targetRoot.Position).Magnitude
+				if distance <= ATTACK_RANGE then
+					targetHumanoid:TakeDamage(DAMAGE_AMOUNT)
+					print(player.Name .. " was hit by the Slasher!")
+					-- Trigger blood hunt or survivor highlight logic here
+				end
+			end
+		end
+	end
+	
+	task.wait(COOLDOWN)
+	db = false
+end)
+-- StarterPlayerScripts -> SprintController (LocalScript)
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local config = require(ReplicatedStorage:WaitForChild("CharacterConfig"))
+local localPlayer = Players.LocalPlayer
+
+local currentStamina = config.Settings.Survivor.MaxStamina
+local isSprinting = false
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.LeftShift then
+		isSprinting = true
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.LeftShift then
+		isSprinting = false
+	end
+end)
+
+RunService.Heartbeat:Connect(function(deltaTime)
+	local character = localPlayer.Character
+	if not character then return end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+	
+	-- Determine if player is actually moving forward/sideways
+	local isMoving = humanoid.MoveDirection.Magnitude > 0
+
+	if isSprinting and isMoving and currentStamina > 0 then
+		humanoid.WalkSpeed = config.Settings.Survivor.SprintSpeed
+		currentStamina = math.max(0, currentStamina - (20 * deltaTime)) -- Deplete stamina
+	else
+		humanoid.WalkSpeed = config.Settings.Survivor.WalkSpeed
+		currentStamina = math.min(config.Settings.Survivor.MaxStamina, currentStamina + (config.Settings.Survivor.StaminaRegen * deltaTime)) -- Regen
+	end
+	
+	-- Optional: Update a UI Stamina Bar on the screen using currentStamina variable
+end)
+-- StarterCharacterScripts -> TerrorRadius (LocalScript)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+local MAX_RADIUS = 60 -- Distance in studs where the heartbeat starts playing
+
+-- Ensure you have a heartbeat sound asset inserted inside this script
+local heartbeatSound = script:WaitForChild("HeartbeatSound") 
+
+RunService.Heartbeat:Connect(function()
+	local localCharacter = localPlayer.Character
+	local localRoot = localCharacter and localCharacter:FindFirstChild("HumanoidRootPart")
+	if not localRoot then return end
+	
+	local closestDistance = MAX_RADIUS
+	
+	-- Find the Killer in the game session
+	for _, player in ipairs(game.Players:GetPlayers()) do
+		-- Assuming your Round System sets an attribute or Tag marking who the killer is
+		if player:GetAttribute("IsKiller") == true and player.Character then
+			local killerRoot = player.Character:FindFirstChild("HumanoidRootPart")
+			if killerRoot then
+				local dist = (localRoot.Position - killerRoot.Position).Magnitude
+				if dist < closestDistance then
+					closestDistance = dist
+				end
+			end
+		end
+	end
+	
+	-- If killer is inside the radius, play and dynamically alter heartbeat speed/volume
+	if closestDistance < MAX_RADIUS then
+		if not heartbeatSound.IsPlaying then heartbeatSound:Play() end
+		
+		-- Scale volume and playback speed based on distance (closer = louder/faster)
+		local intensity = 1 - (closestDistance / MAX_RADIUS)
+		heartbeatSound.Volume = intensity
+		heartbeatSound.PlaybackSpeed = 1 + (intensity * 0.8) 
+	else
+		heartbeatSound:Stop()
+	end
+end)
