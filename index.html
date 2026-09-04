@@ -51,17 +51,9 @@ if(normalizedAngle>=start&&normalizedAngle<=end){repairing.prog=Math.min(100,rep
 function exitRepair(){repairing=null;scActive=false;document.getElementById("puz").style.display="none";canvas.requestPointerLock();}
 function applyHelpless(target,dur){target.fx.Helpless=dur;if(target===p){exitRepair();}}
 function launchBoost(){if(p.rageTimer>0){p.x+=Math.sin(p.yaw)*45;p.y+=Math.cos(p.yaw)*45;}}
-function useSlash(){
-p.cdSlash=0.5;launchBoost();bots.forEach(b=>{if(b.t==="Survivor"&&b.a&&Math.hypot(b.x-p.x,b.y-p.y)<45){b.hp-=20;if(b.hp<=0)b.a=false;}});
-}
-function useDecapitate(){
-let isRage=(p.rageTimer>0);p.cdDecap=isRage?10:15;let dmg=isRage?35:25;launchBoost();
-bots.forEach(b=>{if(b.t==="Survivor"&&b.a&&Math.hypot(b.x-p.x,b.y-p.y)<45){b.hp-=dmg;applyHelpless(b,6.0);if(b.hp<=0)b.a=false;}});
-}
-function useGashingWound(){
-p.cdGash=30;let dmg=(p.rageTimer>0)?70:50;
-bots.forEach(b=>{if(b.t==="Survivor"&&b.a&&Math.hypot(b.x-p.x,b.y-p.y)<45){b.hp-=dmg;if(b.hp<=0)b.a=false;}});
-}
+function useSlash(){p.cdSlash=0.5;launchBoost();bots.forEach(b=>{if(b.t==="Survivor"&&b.a&&Math.hypot(b.x-p.x,b.y-p.y)<45){b.hp-=20;if(b.hp<=0)b.a=false;}});}
+function useDecapitate(){let isRage=(p.rageTimer>0);p.cdDecap=isRage?10:15;let dmg=isRage?35:25;launchBoost();bots.forEach(b=>{if(b.t==="Survivor"&&b.a&&Math.hypot(b.x-p.x,b.y-p.y)<45){b.hp-=dmg;applyHelpless(b,6.0);if(b.hp<=0)b.a=false;}});}
+function useGashingWound(){p.cdGash=30;let dmg=(p.rageTimer>0)?70:50;bots.forEach(b=>{if(b.t==="Survivor"&&b.a&&Math.hypot(b.x-p.x,b.y-p.y)<45){b.hp-=dmg;if(b.hp<=0)b.a=false;}});}
 function useRagingPace(){p.cdRage=15;p.rageTimer=30;p.st=100;}
 function update(dt){
 timer-=dt;if(timer<=0)return end("TIME EXPIRED!");
@@ -85,7 +77,7 @@ bots.forEach(b=>{
 if(b.t==="Survivor"){if(!b.a)return;svC++;let d=Math.hypot(kil.x-b.x,kil.y-b.y);
 if(d<180){let a=Math.atan2(b.y-kil.y,b.x-kil.x);b.x+=Math.cos(a)*b.s*1.2*dt;b.y+=Math.sin(a)*b.s*1.2*dt;}
 else{let g=gens.find(x=>!x.done);if(g){let a=Math.atan2(g.y-b.y,g.x-b.x);b.x+=Math.cos(a)*b.s*0.6*dt;b.y+=Math.sin(a)*b.s*0.6*dt;if(Math.hypot(g.x-b.x,g.y-b.y)<15)g.prog=Math.min(100,g.prog+4*dt);if(g.prog>=100)g.done=true;}}}
-else if(b.t==="Killer"){let t=bots.filter(x=>x.t==="Survivor"&&x.a).sort((m,n)=>Math.hypot(m.x-p.x,m.y-p.y)-Math.hypot(n.x-p.x,n.y-p.y))[0];if(!t)t=p;
+else if(b.t==="Killer"){let t=bots.filter(x=>x.t==="Survivor"&&x.a).sort((m,n)=>Math.hypot(m.x-p.x,m.y-p.y)-Math.hypot(n.x-p.x,n.y-p.y));if(!t)t=p;
 let a=Math.atan2(t.y-b.y,t.x-b.x);b.x+=Math.cos(a)*b.s*dt;b.y+=Math.sin(a)*b.s*dt;if(Math.hypot(t.x-b.x,t.y-b.y)<40&&Math.random()<0.05){t.hp-=15;if(t.hp<=0)t.a=false;}}
 });
 if(rRole==="Killer"&&svC===0)end("KILLER WINS!");
@@ -104,22 +96,4 @@ ctx.fillStyle="#fff";ctx.font=(s.z*4)+"px sans-serif";ctx.fillText(Math.floor(g.
 pil.forEach(p=>{let s=proj(p.x,p.y,0);if(s){q.push({z:s.d,render:()=>{ctx.fillStyle="#333";ctx.beginPath();ctx.arc(s.x,s.y,s.z*p.r,0,Math.PI*2);ctx.fill();}});}});
 bots.forEach(b=>{if(!b.a)return;let s=proj(b.x,b.y,0);if(s){q.push({z:s.d,render:()=>{
 ctx.fillStyle=b.t==="Killer"?"#f00":"#0af";ctx.beginPath();ctx.arc(s.x,s.y,s.z*12,0,Math.PI*2);ctx.fill();
-ctx.fillStyle="#fff";ctx.font=(s.z*4)+"px sans-serif";ctx.fillText(b.t,s.x-s.z*10,s.y-s.z*16);
-}});}});
-q.sort((a,b)=>b.z-a.z).forEach(i=>i.render());
-document.getElementById("r").innerText="Role: "+rRole;
-document.getElementById("st").innerText="Stamina: "+Math.floor(p.st)+"%";
-document.getElementById("sv").innerText="HP: "+(rRole==="Survivor"?p.hp:"N/A");
-let fxB=document.getElementById("fx-box");fxB.innerHTML="";
-if(p.fx.Helpless)fxB.innerHTML+='<div class="fx-tag">HELPLESS ('+p.fx.Helpless.toFixed(1)+'s)</div>';
-if(p.rageTimer>0)fxB.innerHTML+='<div class="fx-tag rage-tag">BLOOD RAGE ('+p.rageTimer.toFixed(1)+'s)</div>';
-if(rRole==="Killer"){
-let abUI=document.getElementById("abilUI");
-abUI.innerHTML="[L-Click] Slash "+(p.cdSlash>0?"("+p.cdSlash.toFixed(1)+"s)":"[READY]")+"<br>"+
-"[Q] Decapitate "+(p.cdDecap>0?"("+p.cdDecap.toFixed(1)+"s)":"[READY]")+"<br>"+
-"[E] Gashing Wound "+(p.cdGash>0?"("+p.cdGash.toFixed(1)+"s)":"[READY]")+"<br>"+
-"[R] Blood Rage "+(p.cdRage>0?"("+p.cdRage.toFixed(1)+"s)":"[READY]");
-}
-}
-function end(m){run=false;document.exitPointerLock();alert(m);location.reload();}
-</script></body></html>
+ctx.fillStyle="#fff";ctx.font=(s.z4)+"px sans-serif";ctx.fillText(b.t,s.x-s.z10,s.y-s.z*16);}});}});q.sort((a,b)=>b.z-a.z).forEach(i=>i.render());document.getElementById("r").innerText="Role: "+rRole;document.getElementById("st").innerText="Stamina: "+Math.floor(p.st)+"%";document.getElementById("sv").innerText="HP: "+(rRole==="Survivor"?p.hp:"N/A");let fxB=document.getElementById("fx-box");fxB.innerHTML="";if(p.fx.Helpless)fxB.innerHTML+='HELPLESS ('+p.fx.Helpless.toFixed(1)+'s)';if(p.rageTimer>0)fxB.innerHTML+='BLOOD RAGE ('+p.rageTimer.toFixed(1)+'s)';if(rRole==="Killer"){let abUI=document.getElementById("abilUI");abUI.innerHTML="[L-Click] Slash "+(p.cdSlash>0?"("+p.cdSlash.toFixed(1)+"s)":"[READY]")+""+"[Q] Decapitate "+(p.cdDecap>0?"("+p.cdDecap.toFixed(1)+"s)":"[READY]")+""+"[E] Gashing Wound "+(p.cdGash>0?"("+p.cdGash.toFixed(1)+"s)":"[READY]")+""+"[R] Blood Rage "+(p.cdRage>0?"("+p.cdRage.toFixed(1)+"s)":"[READY]");}}function end(m){run=false;document.exitPointerLock();alert(m);location.reload();}
